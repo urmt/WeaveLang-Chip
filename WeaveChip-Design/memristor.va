@@ -1,0 +1,36 @@
+`include "disciplines.vams"
+`include "constants.vams"
+
+module memristor (p, n);
+    inout p, n;
+    electrical p, n;
+
+    // Parameters for Ta/HfO2/Pt memristor (TSMC N7 BEOL)
+    parameter real Ron = 1e3;    // Low resistance (Ohm)
+    parameter real Roff = 1e6;   // High resistance (Ohm)
+    parameter real Vset = 1.5;   // Set voltage (V)
+    parameter real Vreset = -1.2; // Reset voltage (V)
+    parameter real x0 = 0.0;     // Initial state (0 to 1)
+    parameter real D = 5e-9;     // Device thickness (m)
+    parameter real uv = 1e-14;   // Mobility (m^2/Vs)
+
+    real x;  // Memristor state (0 to 1)
+    real R;  // Current resistance
+
+    analog begin
+        @(initial_step) begin
+            x = x0; // Initialize state
+        end
+
+        // Memristor state dynamics (Chua's model)
+        V(p,n) <+ I(p,n) * R;
+        R = Ron * x + Roff * (1.0 - x);
+        x = x + ddt(uv * I(p,n) / D);
+        if (x > 1.0) x = 1.0;
+        if (x < 0.0) x = 0.0;
+
+        // SET/RESET thresholds
+        if (V(p,n) > Vset) x = 1.0;
+        if (V(p,n) < Vreset) x = 0.0;
+    end
+endmodule
