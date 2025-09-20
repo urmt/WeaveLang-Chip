@@ -1,0 +1,64 @@
+`include "disciplines.vams"
+`include "constants.vams"
+`include "../netlists/weavechip_top.va"
+
+module weavechip_tb;
+    // Ports
+    electrical vdd, gnd;
+    electrical [3:0][3:0][7:0] in_sense;  // 4x4 array of 8-bit sensor inputs
+    electrical [3:0][3:0] out_spikes;     // 4x4 spike outputs
+    electrical clk_ext, rst;
+
+    // Parameters
+    parameter real vdd_nom = 0.7;    // Supply voltage (V)
+    parameter real t_sim = 1e-3;     // Simulation time (s)
+    parameter real t_step = 1e-6;    // Time step (s)
+    parameter real noise_sigma = 0.2; // Input noise (V)
+
+    // Instantiate 4x4 WeaveChip subset
+    weavechip_top #(
+        .NUM_ROWS(4),
+        .NUM_COLS(4)
+    ) dut (
+        .vdd(vdd),
+        .gnd(gnd),
+        .in_sense(in_sense),
+        .out_spikes(out_spikes),
+        .clk_ext(clk_ext),
+        .rst(rst)
+    );
+
+    // Stimulus
+    analog begin
+        // Power supply
+        V(vdd) <+ vdd_nom;
+        V(gnd) <+ 0.0;
+
+        // Reset pulse
+        V(rst) <+ ( $realtime < 1e-6 ) ? vdd_nom : 0.0;
+
+        // Synthetic sensor inputs (Gaussian noise)
+        integer i, j, k;
+        for (i = 0; i < 4; i = i + 1) begin
+            for (j = 0; j < 4; j = j + 1) begin
+                for (k = 0; k < 8; k = k + 1) begin
+                    V(in_sense[i][j][k]) <+ $rdist_normal(0.5, noise_sigma, $realtime);
+                end
+            end
+        end
+
+        // External clock (optional, for host sync)
+        V(clk_ext) <+ vdd_nom * ( ($realtime % 1e-6) < 5e-7 );
+    end
+
+    // Output monitoring
+    analog begin
+        $strobe("Time=%g, Spikes=%g", $realtime, V(out_spikes));
+    end
+
+    // Simulation control
+    initial begin
+        $timeformat(-9, 3, "ns", 10);
+        $finish(t_sim);
+    end
+endmodule
