@@ -18,6 +18,8 @@ This repository hosts the open-source design files for WeaveChip, a 1.2 mm² neu
 - **Synthesis/Emulation**: 
   - `weavechip_synth.tcl`: Design Compiler synthesis script.
   - `fpga_emulation.vhd`: VHDL for Xilinx Versal emulation.
+- **Benchmarks**
+  - `benchmark_suite.py`, a Python script for evaluating WeaveChip’s performance on 100-agent swarm tasks (flocking, foraging, self-repair). Run `python benchmark_suite.py` to generate `benchmark_results.csv`.
 - **Docs**: 
   - `DESIGN_SPEC.md`: Architecture and process details.
   - `SIM_GUIDE.md`: Simulation setup guide.
