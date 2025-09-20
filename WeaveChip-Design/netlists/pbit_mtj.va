@@ -1,0 +1,43 @@
+`include "disciplines.vams"
+`include "constants.vams"
+
+module pbit_mtj (p, n, v_ctrl);
+    inout p, n;
+    input v_ctrl;  // Control voltage for magnetic field
+    electrical p, n, v_ctrl;
+
+    // Parameters for low-barrier MTJ (TSMC N7 BEOL)
+    parameter real R_ap = 5e3;    // Anti-parallel resistance (Ohm)
+    parameter real R_p = 2e3;     // Parallel resistance (Ohm)
+    parameter real H_ext = 0.01;  // External field (T)
+    parameter real alpha = 0.02;  // Damping factor
+    parameter real gamma = 2.21e5; // Gyromagnetic ratio (m/A-s)
+    parameter real noise_sigma = 0.2; // Thermal noise (V)
+    parameter real v_th = 0.5;    // Threshold for state flip
+
+    real m_z;  // Magnetization (z-axis, -1 to 1)
+    real R;    // Current resistance
+    real H_eff; // Effective magnetic field
+
+    analog begin
+        @(initial_step) begin
+            m_z = 0.0; // Initialize magnetization
+        end
+
+        // Stochastic LLG dynamics
+        H_eff = H_ext + V(v_ctrl) * 0.1; // Field from control voltage
+        real noise = $rdist_normal(0.0, noise_sigma, $realtime);
+        m_z = m_z + ddt(-gamma * H_eff * m_z - alpha * gamma * m_z * noise);
+        if (m_z > 1.0) m_z = 1.0;
+        if (m_z < -1.0) m_z = -1.0;
+
+        // Resistance based on magnetization
+        R = (m_z > 0.0) ? R_p : R_ap;
+        V(p,n) <+ I(p,n) * R;
+
+        // Probabilistic state flip
+        if (abs(m_z) > v_th) begin
+            V(p,n) <+ (m_z > 0.0) ? 0.5 : -0.5; // Output probabilistic bit
+        end
+    end
+endmodule

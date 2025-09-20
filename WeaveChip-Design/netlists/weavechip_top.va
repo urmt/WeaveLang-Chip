@@ -1,0 +1,56 @@
+`include "disciplines.vams"
+`include "constants.vams"
+`include "weave_core.va"
+
+module weavechip_top (vdd, gnd, in_sense, out_spikes, clk_ext, rst);
+    inout vdd, gnd;
+    input [31:0][31:0][7:0] in_sense;  // 32x32 array of 8-bit sensor inputs
+    output [31:0][31:0] out_spikes;    // 32x32 spike outputs
+    input clk_ext, rst;                // External clock (optional), reset
+
+    electrical vdd, gnd;
+    electrical [31:0][31:0][7:0] in_sense;
+    electrical [31:0][31:0] out_spikes;
+    electrical clk_ext, rst;
+
+    // Internal NoC signals for weaving
+    electrical [31:0][31:0][3:0] sync_in, sync_out;
+
+    // Instantiate 32x32 core array
+    genvar i, j;
+    generate
+        for (i = 0; i < 32; i = i + 1) begin : row
+            for (j = 0; j < 32; j = j + 1) begin : col
+                weave_core core_inst (
+                    .vdd(vdd),
+                    .gnd(gnd),
+                    .in_sense(in_sense[i][j]),
+                    .out_spike(out_spikes[i][j]),
+                    .sync_in(sync_in[i][j]),
+                    .sync_out(sync_out[i][j])
+                );
+            end
+        end
+    endgenerate
+
+    // NoC: Asynchronous bundled-data handshaking
+    analog begin
+        integer i, j;
+        for (i = 0; i < 32; i = i + 1) begin
+            for (j = 0; j < 32; j = j + 1) begin
+                // Connect sync_out to neighbors' sync_in (4-connected grid)
+                if (i > 0) V(sync_in[i][j][0]) <+ V(sync_out[i-1][j][1]);
+                if (i < 31) V(sync_in[i][j][1]) <+ V(sync_out[i+1][j][0]);
+                if (j > 0) V(sync_in[i][j][2]) <+ V(sync_out[i][j-1][3]);
+                if (j < 31) V(sync_in[i][j][3]) <+ V(sync_out[i][j+1][2]);
+            end
+        end
+    end
+
+    // Reset and optional clock for host interface
+    analog begin
+        if (V(rst) > 0.5) begin
+            V(out_spikes) <+ 0.0; // Reset spikes
+        end
+    end
+endmodule

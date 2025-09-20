@@ -1,1 +1,63 @@
+`include "disciplines.vams"
+`include "constants.vams"
 
+module weave_core (vdd, gnd, in_sense, out_spike, sync_in, sync_out);
+    inout vdd, gnd;
+    input [7:0] in_sense;  // 8-bit sensor input (qualia)
+    output out_spike;      // Spike output for resolution
+    inout [3:0] sync_in, sync_out;  // 4-bit async weaving ports
+
+    electrical vdd, gnd, out_spike;
+    electrical [3:0] sync_in, sync_out;
+    electrical [7:0] in_sense;
+
+    // Parameters for TSMC N7 and memristor
+    parameter real vdd_nom = 0.7;    // Supply voltage (V)
+    parameter real c_mem = 1e-12;    // Membrane capacitance (F)
+    parameter real r_leak = 1e6;     // Leak resistance (Ohm)
+    parameter real g_memristor = 1e-3; // Memristor conductance (S)
+    parameter real v_th = 0.5;       // Spike threshold (V)
+    parameter real noise_sigma = 0.2; // Drift noise (V)
+
+    // Internal nodes
+    electrical v_mem;  // Membrane potential
+    electrical v_pbit; // P-bit stochastic node
+    electrical v_jq;   // J(q) optimization node
+
+    // Tension: Leaky IF neuron for C_q
+    analog begin
+        real i_in = 0.0;
+        integer i;
+        for (i = 0; i < 8; i = i + 1) begin
+            i_in = i_in + V(in_sense[i]) * 0.125; // Weighted sum
+        end
+        I(v_mem, gnd) <+ i_in - V(v_mem)/r_leak; // Leak dynamics
+        V(v_mem) <+ ddt(c_mem * V(v_mem));       // Capacitive integration
+    end
+
+    // Drift: P-bit stochasticity for F_q
+    analog begin
+        real noise = $rdist_normal(0.0, noise_sigma, $realtime);
+        V(v_pbit) <+ noise * (V(vdd) - V(gnd)); // Stochastic voltage
+        if (V(v_pbit) > v_th) V(v_pbit) <+ -v_th; // Clamp
+        if (V(v_pbit) < -v_th) V(v_pbit) <+ v_th;
+    end
+
+    // Resolution: Memristor crossbar for J(q)
+    analog begin
+        real g_eff = g_memristor * (0.6 * V(v_mem) + 0.4 * V(v_pbit)); // J(q) = 0.6*C_q + 0.4*F_q
+        I(v_jq, gnd) <+ g_eff * V(v_jq); // Analog MVM
+        if (V(v_jq) > v_th) begin
+            V(out_spike) <+ 1.0; // Fire spike
+            @(cross(V(v_jq) - v_th, +1)) V(v_jq) <+ 0.0; // Reset
+        end
+    end
+
+    // Weaving: Async sync with neighbors
+    analog begin
+        integer j;
+        for (j = 0; j < 4; j = j + 1) begin
+            I(sync_out[j], sync_in[j]) <+ V(v_jq) * 0.25; // Bidirectional sync
+        end
+    end
+endmodule
