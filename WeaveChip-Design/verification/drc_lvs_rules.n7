@@ -1,1 +1,58 @@
+# drc_lvs_rules.n7
+# Description: Mentor Calibre DRC/LVS rules for TSMC N7 with WeaveChip memristor/p-bit extensions
+# Usage: Run in Calibre DRC/LVS tools
 
+# Include TSMC N7 base rules
+INCLUDE "tsmc_n7_drc_lvs.rules"
+
+# Define custom layers for memristor and p-bit
+LAYER Ta_bottom 201
+LAYER HfO2_switch 202
+LAYER Pt_top 203
+LAYER MTJ_stack 204
+LAYER nplus_poly 205
+
+# Memristor layer rules
+DRC MIN_WIDTH Ta_bottom 28e-9
+DRC MIN_SPACING Ta_bottom 28e-9
+DRC MIN_WIDTH HfO2_switch 28e-9
+DRC MIN_ENCLOSURE HfO2_switch Ta_bottom 5e-9
+DRC MIN_WIDTH Pt_top 28e-9
+DRC MIN_ENCLOSURE Pt_top HfO2_switch 5e-9
+
+# P-bit (MTJ) layer rules
+DRC MIN_WIDTH MTJ_stack 50e-9
+DRC MIN_SPACING MTJ_stack 50e-9
+DRC MIN_ENCLOSURE MTJ_stack M4 10e-9
+
+# Selector diode rules
+DRC MIN_WIDTH nplus_poly 28e-9
+DRC MIN_SPACING nplus_poly 28e-9
+DRC MIN_ENCLOSURE nplus_poly M4 10e-9
+
+# Connectivity for LVS
+CONNECT Ta_bottom M4 BY VIA4
+CONNECT HfO2_switch Ta_bottom
+CONNECT Pt_top HfO2_switch
+CONNECT MTJ_stack M4 BY VIA4
+CONNECT nplus_poly M4 BY CONTACT
+
+# LVS device recognition
+DEVICE memristor p n Ta_bottom HfO2_switch Pt_top
+DEVICE pbit_mtj p n v_ctrl MTJ_stack
+DEVICE selector_diode p n nplus_poly
+
+# DRC checks for BEOL integration
+DRC MIN_DENSITY M5 0.3
+DRC MAX_DENSITY M5 0.7
+DRC MIN_VIA_SPACING VIA4 28e-9
+
+# LVS netlist comparison
+LVS COMPARE SCHEMATIC "weavechip_top.va" LAYOUT "weavechip.gds"
+LVS CHECK DEVICE memristor
+LVS CHECK DEVICE pbit_mtj
+LVS CHECK DEVICE selector_diode
+
+# Output reports
+DRC REPORT FILE "drc_results.rpt"
+LVS REPORT FILE "lvs_results.rpt"
