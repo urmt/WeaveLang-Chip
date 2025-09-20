@@ -43,7 +43,7 @@ This repository hosts the open-source design files for WeaveChip, a 1.2 mm² neu
    ```
 
 ## License
-MIT License for non-commercial use. Contact xAI (legal@x.ai) for commercial licensing.
+MIT License for non-commercial use. Contact thesfh@proton.me for commercial licensing.
 
 ## Citation
-If you use WeaveChip, cite: Doe, J., Smith, J., Traver, M.R., "WeaveChip: A Hybrid CMOS-Memristor Neuromorphic Processor," IEEE Trans. Circuits Syst., 2025 (pending).
+If you use WeaveChip, cite: Traver, M.R., "WeaveChip: A Hybrid CMOS-Memristor Neuromorphic Processor," IEEE Trans. Circuits Syst., 2025 (pending).
